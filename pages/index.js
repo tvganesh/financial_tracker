@@ -25,6 +25,10 @@ function excelDateToJSDate(serial) {
 export default function Home() {
   const [expenses, setExpenses] = useState([]);
   const [income, setIncome] = useState([]);
+  const [currentSheet, setCurrentSheet] = useState('default');
+  const [sheets, setSheets] = useState(['default']);
+  const [newSheetName, setNewSheetName] = useState('');
+  const [showNewSheetModal, setShowNewSheetModal] = useState(false);
   const [expenseForm, setExpenseForm] = useState({
     date: '',
     expense: '',
@@ -64,12 +68,26 @@ export default function Home() {
   useEffect(() => {
     fetchExpenses();
     fetchIncome();
+    fetchSheets();
   }, []);
+
+  // Fetch sheets
+  const fetchSheets = async () => {
+    try {
+      const response = await fetch('/api/sheets');
+      const data = await response.json();
+      if (data.success) {
+        setSheets(data.data.map(sheet => sheet.name));
+      }
+    } catch (error) {
+      console.error('Error fetching sheets:', error);
+    }
+  };
 
   // Fetch expenses
   const fetchExpenses = async () => {
     try {
-      const response = await fetch('/api/expenses');
+      const response = await fetch(`/api/expenses?sheet=${currentSheet}`);
       const data = await response.json();
       if (data.success) {
         setExpenses(data.data);
@@ -82,7 +100,7 @@ export default function Home() {
   // Fetch income
   const fetchIncome = async () => {
     try {
-      const response = await fetch('/api/income');
+      const response = await fetch(`/api/income?sheet=${currentSheet}`);
       const data = await response.json();
       if (data.success) {
         setIncome(data.data);
@@ -91,6 +109,17 @@ export default function Home() {
       console.error('Error fetching income:', error);
     }
   };
+
+  // Handle sheet change
+  const handleSheetChange = (newSheet) => {
+    setCurrentSheet(newSheet);
+  };
+
+  // Effect to reload data when sheet changes
+  useEffect(() => {
+    fetchExpenses();
+    fetchIncome();
+  }, [currentSheet]);
 
   // Handle expense form changes
   const handleExpenseChange = (e) => {
@@ -116,7 +145,7 @@ export default function Home() {
         const response = await fetch('/api/expenses', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingExpenseId, ...expenseForm }),
+          body: JSON.stringify({ id: editingExpenseId, ...expenseForm, sheet_name: currentSheet }),
         });
         const data = await response.json();
         if (data.success) {
@@ -128,7 +157,7 @@ export default function Home() {
         const response = await fetch('/api/expenses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(expenseForm),
+          body: JSON.stringify({ ...expenseForm, sheet_name: currentSheet }),
         });
         const data = await response.json();
         if (data.success) {
@@ -149,7 +178,7 @@ export default function Home() {
         const response = await fetch('/api/income', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: editingIncomeId, ...incomeForm }),
+          body: JSON.stringify({ id: editingIncomeId, ...incomeForm, sheet_name: currentSheet }),
         });
         const data = await response.json();
         if (data.success) {
@@ -161,7 +190,7 @@ export default function Home() {
         const response = await fetch('/api/income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(incomeForm),
+          body: JSON.stringify({ ...incomeForm, sheet_name: currentSheet }),
         });
         const data = await response.json();
         if (data.success) {
@@ -254,7 +283,7 @@ export default function Home() {
         await fetch('/api/expenses', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(expense),
+          body: JSON.stringify({ ...expense, sheet_name: currentSheet }),
         });
       }
       imported = true;
@@ -269,7 +298,7 @@ export default function Home() {
         await fetch('/api/income', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(inc),
+          body: JSON.stringify({ ...inc, sheet_name: currentSheet }),
         });
       }
       imported = true;
@@ -342,6 +371,29 @@ export default function Home() {
       }
     } catch (err) {
       alert('Failed to clear records: ' + err.message);
+    }
+  };
+
+  // Handle creating a new sheet
+  const handleCreateNewSheet = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newSheetName }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSheets([...sheets, newSheetName]);
+        setCurrentSheet(newSheetName);
+        setNewSheetName('');
+        setShowNewSheetModal(false);
+      } else {
+        alert('Failed to create new sheet: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error creating new sheet:', error);
     }
   };
 
@@ -427,6 +479,52 @@ export default function Home() {
           </div>
         </div>
       )}
+      {/* New Sheet Modal */}
+      {showNewSheetModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.3)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', minWidth: '400px', maxWidth: '90vw', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ marginTop: 0, color: '#0073aa' }}>Create New Sheet</h2>
+            <form onSubmit={handleCreateNewSheet} style={{ marginTop: '20px' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px' }}>Sheet Name:</label>
+                <input
+                  type="text"
+                  value={newSheetName}
+                  onChange={(e) => setNewSheetName(e.target.value)}
+                  style={{ width: '100%', padding: '8px', fontSize: '14px' }}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewSheetModal(false);
+                    setNewSheetName('');
+                  }}
+                  style={{ background: '#f5f5f5', color: '#333' }}
+                >
+                  Cancel
+                </button>
+                <button type="submit" style={{ background: '#0073aa' }}>
+                  Create Sheet
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* Main Flex Layout */}
       <div style={{ display: 'flex', minHeight: '100vh' }}>
         {/* Sidebar */}
@@ -491,7 +589,7 @@ export default function Home() {
 
         {/* Main Content */}
         <main style={{ flex: 1, background: '#f1f1f1', padding: '40px', minHeight: '100vh' }}>
-          {/* Menu Bar (File, Expense, Report) */}
+          {/* Menu Bar with Sheet Selector */}
           <div style={{
             display: 'flex',
             gap: '32px',
@@ -500,61 +598,89 @@ export default function Home() {
             color: '#222',
             marginBottom: '24px',
             alignItems: 'center',
-            justifyContent: 'flex-start',
+            justifyContent: 'space-between',
             position: 'relative',
           }}>
-            <span
-              style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s', position: 'relative' }}
-              onClick={() => setFileMenuOpen((open) => !open)}
-              onBlur={() => setTimeout(() => setFileMenuOpen(false), 200)}
-              tabIndex={0}
-            >
-              File
-              {fileMenuOpen && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  background: '#fff',
-                  border: '1px solid #e0e0e0',
+            <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+              <span
+                style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s', position: 'relative' }}
+                onClick={() => setFileMenuOpen((open) => !open)}
+                onBlur={() => setTimeout(() => setFileMenuOpen(false), 200)}
+                tabIndex={0}
+              >
+                File
+                {fileMenuOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    background: '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    minWidth: '140px',
+                    zIndex: 1000,
+                    marginTop: '2px',
+                  }}>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={() => { setFileMenuOpen(false); setShowNewSheetModal(true); }}
+                    >
+                      New Sheet
+                    </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={handleImportClick}
+                    >
+                      Import
+                    </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={handleExportClick}
+                    >
+                      Export
+                    </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#d32f2f', borderTop: '1px solid #eee' }}
+                      onClick={() => { setFileMenuOpen(false); setShowClearConfirm(true); }}
+                    >
+                      Clear all records
+                    </div>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept=".xls,.xlsx"
+                  ref={fileInputRef}
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                />
+              </span>
+              <span
+                style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s' }}
+                onClick={() => setSelectedSection('report')}
+              >Report</span>
+            </div>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label style={{ fontSize: '14px' }}>Current Sheet:</label>
+              <select
+                value={currentSheet}
+                onChange={(e) => handleSheetChange(e.target.value)}
+                style={{
+                  padding: '6px 12px',
                   borderRadius: '4px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                  minWidth: '140px',
-                  zIndex: 1000,
-                  marginTop: '2px',
-                }}>
-                  <div
-                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
-                    onClick={handleImportClick}
-                  >
-                    Import
-                  </div>
-                  <div
-                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
-                    onClick={handleExportClick}
-                  >
-                    Export
-                  </div>
-                  <div
-                    style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#d32f2f', borderTop: '1px solid #eee' }}
-                    onClick={() => { setFileMenuOpen(false); setShowClearConfirm(true); }}
-                  >
-                    Clear all records
-                  </div>
-                </div>
-              )}
-              <input
-                type="file"
-                accept=".xls,.xlsx"
-                ref={fileInputRef}
-                onChange={handleFileChange}
-                style={{ display: 'none' }}
-              />
-            </span>
-            <span
-              style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s' }}
-              onClick={() => setSelectedSection('report')}
-            >Report</span>
+                  border: '1px solid #ddd',
+                  backgroundColor: '#fff',
+                  fontSize: '14px',
+                  minWidth: '150px'
+                }}
+              >
+                {sheets.map(sheet => (
+                  <option key={sheet} value={sheet}>{sheet}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div style={{
@@ -564,7 +690,6 @@ export default function Home() {
             borderRadius: '8px',
             padding: '30px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-            // left-aligned by default
           }}>
             {selectedSection === 'expenses' && (
               <>

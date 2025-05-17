@@ -2,7 +2,7 @@ import sqlite3 from 'sqlite3';
 import { open } from 'sqlite';
 
 // Initialize database
-async function initializeDatabase() {
+export async function initializeDatabase() {
   const db = await open({
     filename: './expenses.db',
     driver: sqlite3.Database
@@ -16,6 +16,7 @@ async function initializeDatabase() {
       expense TEXT NOT NULL,
       category TEXT NOT NULL,
       amount REAL NOT NULL,
+      sheet_name TEXT NOT NULL DEFAULT 'default',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -28,8 +29,22 @@ async function initializeDatabase() {
       income TEXT NOT NULL,
       category TEXT NOT NULL,
       amount REAL NOT NULL,
+      sheet_name TEXT NOT NULL DEFAULT 'default',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
+  `);
+
+  // Create sheets table if it doesn't exist
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS sheets (
+      name TEXT PRIMARY KEY,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Insert default sheet if it doesn't exist
+  await db.exec(`
+    INSERT OR IGNORE INTO sheets (name) VALUES ('default')
   `);
 
   return db;
