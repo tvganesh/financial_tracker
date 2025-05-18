@@ -1,0 +1,64 @@
+{
+  "expense": [
+    {
+      "date": "2024-03-01",
+      "expense": "Grocery shopping at Whole Foods",
+      "category": "grocery",
+      "amount": "156.75"
+    },
+    {
+      "date": "2024-03-03",
+      "expense": "Internet bill - Comcast",
+      "category": "internet",
+      "amount": "89.99"
+    },
+    {
+      "date": "2024-03-05",
+      "expense": "Gas station fill up",
+      "category": "petrol",
+      "amount": "65.50"
+    },
+    {
+      "date": "2024-03-07",
+      "expense": "Monthly rent payment",
+      "category": "rent",
+      "amount": "2200.00"
+    },
+    {
+      "date": "2024-03-08",
+      "expense": "Uber ride to airport",
+      "category": "transport",
+      "amount": "45.30"
+    },
+    {
+      "date": "2024-03-10",
+      "expense": "Office supplies - Staples",
+      "category": "misc",
+      "amount": "32.45"
+    },
+    {
+      "date": "2024-03-12",
+      "expense": "Trader Joe's groceries",
+      "category": "grocery",
+      "amount": "98.25"
+    },
+    {
+      "date": "2024-03-15",
+      "expense": "Bus pass - monthly",
+      "category": "transport",
+      "amount": "75.00"
+    },
+    {
+      "date": "2024-03-18",
+      "expense": "Phone bill - Verizon",
+      "category": "misc",
+      "amount": "85.99"
+    },
+    {
+      "date": "2024-03-20",
+      "expense": "Amazon Prime subscription",
+      "category": "misc",
+      "amount": "14.99"
+    }
+  ]
+} 

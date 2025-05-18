@@ -270,70 +270,228 @@ export default function Home() {
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
+    console.log('File selected:', file ? { name: file.name, type: file.type, size: file.size } : 'No file');
     if (!file) return;
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, { type: 'array' });
-    let imported = false;
-    let importedExpensesArr = [];
-    let importedIncomeArr = [];
-    // Parse expense sheet
-    const expenseSheet = workbook.Sheets['expense'];
-    if (expenseSheet) {
-      importedExpensesArr = XLSX.utils.sheet_to_json(expenseSheet);
-      for (const expense of importedExpensesArr) {
-        if (expense.date) expense.date = excelDateToJSDate(expense.date);
-        await fetch('/api/expenses', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...expense, sheet_name: currentSheet }),
-        });
+
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      // Function to find sheet by case-insensitive name
+      const findSheet = (name) => {
+        const sheetName = workbook.SheetNames.find(
+          s => s.toLowerCase() === name.toLowerCase()
+        );
+        return sheetName ? workbook.Sheets[sheetName] : null;
+      };
+
+      // Function to normalize column names in a sheet
+      const normalizeColumns = (sheet) => {
+        if (!sheet) return null;
+        const range = XLSX.utils.decode_range(sheet['!ref']);
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const headerCell = sheet[XLSX.utils.encode_cell({ r: 0, c: C })];
+          if (headerCell && headerCell.v) {
+            // Store original header
+            const originalHeader = headerCell.v;
+            // Convert header to lowercase
+            headerCell.v = String(headerCell.v).toLowerCase();
+            // Store mapping for later reference
+            if (!sheet.headerMapping) sheet.headerMapping = {};
+            sheet.headerMapping[headerCell.v] = originalHeader;
+          }
+        }
+        return sheet;
+      };
+
+      // Check for sheets with case-insensitive names
+      const expenseSheet = normalizeColumns(findSheet('expense'));
+      const incomeSheet = normalizeColumns(findSheet('income'));
+
+      if (!expenseSheet && !incomeSheet) {
+        alert('No valid sheets found. Please ensure your Excel file has sheets named "expense" or "income" (case-insensitive).');
+        e.target.value = '';
+        return;
       }
-      imported = true;
-    }
-    // Parse income sheet
-    const incomeSheet = workbook.Sheets['income'];
-    if (incomeSheet) {
-      importedIncomeArr = XLSX.utils.sheet_to_json(incomeSheet);
-      console.log('Imported income rows:', importedIncomeArr);
-      for (const inc of importedIncomeArr) {
-        if (inc.date) inc.date = excelDateToJSDate(inc.date);
-        await fetch('/api/income', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...inc, sheet_name: currentSheet }),
+
+      let imported = false;
+      let importedExpensesArr = [];
+      let importedIncomeArr = [];
+      let importErrors = [];
+
+      // Expected column names (all lowercase)
+      const expectedExpenseColumns = ['date', 'expense', 'category', 'amount'];
+      const expectedIncomeColumns = ['date', 'income', 'category', 'amount'];
+
+      // Process expense sheet
+      if (expenseSheet) {
+        const expenseData = XLSX.utils.sheet_to_json(expenseSheet, { header: 1 });
+        
+        if (expenseData.length === 0) {
+          alert('The expense sheet is empty. Please add some data.');
+          e.target.value = '';
+          return;
+        }
+
+        // Get lowercase headers
+        const headerRow = expenseData[0].map(col => String(col).toLowerCase());
+        const missingColumns = expectedExpenseColumns.filter(col => !headerRow.includes(col));
+
+        if (missingColumns.length > 0) {
+          // Show original column names in the error message using the mapping
+          const originalNames = expectedExpenseColumns.map(col => 
+            col.charAt(0).toUpperCase() + col.slice(1)
+          );
+          alert(`Missing columns in expense sheet: ${missingColumns.map(col => 
+            col.charAt(0).toUpperCase() + col.slice(1)
+          ).join(', ')}\n\nRequired columns are: ${originalNames.join(', ')}`);
+          e.target.value = '';
+          return;
+        }
+
+        // Import with lowercase column names
+        importedExpensesArr = XLSX.utils.sheet_to_json(expenseSheet, {
+          raw: false,
+          defval: null,
+          header: expectedExpenseColumns,
+          range: 1
         });
+
+        for (const expense of importedExpensesArr) {
+          if (expense.date) expense.date = excelDateToJSDate(expense.date);
+          try {
+            const response = await fetch('/api/expenses', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...expense, sheet_name: currentSheet }),
+            });
+            const result = await response.json();
+            if (!result.success) {
+              console.error('Failed to import expense:', expense, result.error);
+            }
+          } catch (error) {
+            console.error('Error importing expense:', expense, error);
+          }
+        }
+        imported = true;
       }
-      imported = true;
+
+      // Process income sheet
+      if (incomeSheet) {
+        const incomeData = XLSX.utils.sheet_to_json(incomeSheet, { header: 1 });
+        
+        if (incomeData.length === 0) {
+          alert('The income sheet is empty. Please add some data.');
+          e.target.value = '';
+          return;
+        }
+
+        // Get lowercase headers
+        const headerRow = incomeData[0].map(col => String(col).toLowerCase());
+        const missingColumns = expectedIncomeColumns.filter(col => !headerRow.includes(col));
+
+        if (missingColumns.length > 0) {
+          // Show original column names in the error message using the mapping
+          const originalNames = expectedIncomeColumns.map(col => 
+            col.charAt(0).toUpperCase() + col.slice(1)
+          );
+          alert(`Missing columns in income sheet: ${missingColumns.map(col => 
+            col.charAt(0).toUpperCase() + col.slice(1)
+          ).join(', ')}\n\nRequired columns are: ${originalNames.join(', ')}`);
+          e.target.value = '';
+          return;
+        }
+
+        // Import with lowercase column names
+        importedIncomeArr = XLSX.utils.sheet_to_json(incomeSheet, {
+          raw: false,
+          defval: null,
+          header: expectedIncomeColumns,
+          range: 1
+        });
+
+        for (const inc of importedIncomeArr) {
+          if (inc.date) inc.date = excelDateToJSDate(inc.date);
+          try {
+            const response = await fetch('/api/income', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...inc, sheet_name: currentSheet }),
+            });
+            const result = await response.json();
+            if (!result.success) {
+              console.error('Failed to import income:', inc, result.error);
+            }
+          } catch (error) {
+            console.error('Error importing income:', inc, error);
+          }
+        }
+        imported = true;
+      }
+
+      if (imported) {
+        await fetchExpenses();
+        await fetchIncome();
+        setImportedExpenses(importedExpensesArr.slice(0, 10));
+        setImportedIncome(importedIncomeArr.slice(0, 10));
+        setImportModalOpen(true);
+      }
+    } catch (error) {
+      console.error('Error during import process:', error);
+      alert('Error importing file: ' + error.message);
     }
-    if (imported) {
-      await fetchExpenses();
-      await fetchIncome();
-      setImportedExpenses(importedExpensesArr.slice(0, 10));
-      setImportedIncome(importedIncomeArr.slice(0, 10));
-      setImportModalOpen(true);
-    }
+
     e.target.value = '';
   };
 
   // Export handler
   const handleExportClick = () => {
-    // Prepare data for export
-    const expenseSheet = XLSX.utils.json_to_sheet(expenses.map(e => ({
-      date: e.date,
-      expense: e.expense,
-      category: e.category,
-      amount: e.amount
-    })));
-    const incomeSheet = XLSX.utils.json_to_sheet(income.map(i => ({
-      date: i.date,
-      income: i.income,
-      category: i.category,
-      amount: i.amount
-    })));
+    // Prompt for filename
+    const defaultFilename = 'financial_data';
+    const filename = prompt('Enter filename for the export:', defaultFilename);
+    
+    if (!filename) return; // User cancelled
+
+    // Ensure filename ends with .xlsx
+    const exportFilename = filename.endsWith('.xlsx') ? filename : `${filename}.xlsx`;
+
+    // Prepare data for export with capitalized headers
+    const expenseSheet = XLSX.utils.json_to_sheet(
+      expenses.map(e => ({
+        Date: e.date,
+        Expense: e.expense,
+        Category: e.category,
+        Amount: e.amount
+      })),
+      {
+        header: ['Date', 'Expense', 'Category', 'Amount']
+      }
+    );
+
+    const incomeSheet = XLSX.utils.json_to_sheet(
+      income.map(i => ({
+        Date: i.date,
+        Income: i.income,
+        Category: i.category,
+        Amount: i.amount
+      })),
+      {
+        header: ['Date', 'Income', 'Category', 'Amount']
+      }
+    );
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, expenseSheet, 'expense');
     XLSX.utils.book_append_sheet(wb, incomeSheet, 'income');
-    XLSX.writeFile(wb, 'financial_data.xlsx');
+    
+    try {
+      XLSX.writeFile(wb, exportFilename);
+      alert(`File successfully exported as "${exportFilename}"`);
+    } catch (error) {
+      console.error('Error exporting file:', error);
+      alert('Failed to export file. Please try again.');
+    }
+    
     setFileMenuOpen(false);
   };
 
@@ -455,7 +613,7 @@ export default function Home() {
                     <td style={{ padding: '6px' }}>{row.date}</td>
                     <td style={{ padding: '6px' }}>{row.expense}</td>
                     <td style={{ padding: '6px' }}>{row.category}</td>
-                    <td style={{ padding: '6px' }}>{row.amount}</td>
+                    <td style={{ padding: '6px' }}>₹{row.amount}</td>
                   </tr>
                 )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>No expenses imported</td></tr>}
               </tbody>
@@ -476,7 +634,7 @@ export default function Home() {
                     <td style={{ padding: '6px' }}>{row.date}</td>
                     <td style={{ padding: '6px' }}>{row.income}</td>
                     <td style={{ padding: '6px' }}>{row.category}</td>
-                    <td style={{ padding: '6px' }}>{row.amount}</td>
+                    <td style={{ padding: '6px' }}>₹{row.amount}</td>
                   </tr>
                 )) : <tr><td colSpan={4} style={{ textAlign: 'center', color: '#888' }}>No income imported</td></tr>}
               </tbody>
@@ -952,7 +1110,7 @@ export default function Home() {
                           <td style={{ padding: '4px' }}>{expense.date}</td>
                           <td style={{ padding: '4px' }}>{expense.expense}</td>
                           <td style={{ padding: '4px' }}>{expense.category}</td>
-                          <td style={{ padding: '4px' }}>${expense.amount}</td>
+                          <td style={{ padding: '4px' }}>₹{expense.amount}</td>
                           <td style={{ padding: '4px' }}>
                             <button
                               onClick={() => handleEditExpense(expense)}
@@ -1129,7 +1287,7 @@ export default function Home() {
                           <td style={{ padding: '4px' }}>{item.date}</td>
                           <td style={{ padding: '4px' }}>{item.income}</td>
                           <td style={{ padding: '4px' }}>{item.category}</td>
-                          <td style={{ padding: '4px' }}>${item.amount}</td>
+                          <td style={{ padding: '4px' }}>₹{item.amount}</td>
                           <td style={{ padding: '4px' }}>
                             <button
                               onClick={() => handleEditIncome(item)}
@@ -1186,7 +1344,7 @@ export default function Home() {
                     }}>
                       <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#2196F3' }}>Total Income</h3>
                       <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#2196F3' }}>
-                        ${totalIncome.toFixed(2)}
+                        ₹{totalIncome.toFixed(2)}
                       </p>
                     </div>
                     
@@ -1198,7 +1356,7 @@ export default function Home() {
                     }}>
                       <h3 style={{ fontSize: '16px', marginBottom: '10px', color: '#4CAF50' }}>Total Expenses</h3>
                       <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#4CAF50' }}>
-                        ${totalExpenses.toFixed(2)}
+                        ₹{totalExpenses.toFixed(2)}
                       </p>
                     </div>
                     
@@ -1220,7 +1378,7 @@ export default function Home() {
                         fontWeight: 'bold', 
                         color: cashFlow >= 0 ? '#2E7D32' : '#C62828'
                       }}>
-                        ${cashFlow.toFixed(2)}
+                        ₹{cashFlow.toFixed(2)}
                       </p>
                     </div>
                   </div>
@@ -1261,7 +1419,7 @@ export default function Home() {
                                   color: 'income' in item ? '#2196F3' : '#4CAF50',
                                   fontWeight: 'bold'
                                 }}>
-                                  ${item.amount}
+                                  ₹{item.amount}
                                 </td>
                               </tr>
                             ))}
