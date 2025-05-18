@@ -63,6 +63,8 @@ export default function Home() {
   const [reportFromDate, setReportFromDate] = useState('');
   const [reportToDate, setReportToDate] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
+  const [sheetToDelete, setSheetToDelete] = useState('');
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -397,6 +399,28 @@ export default function Home() {
     }
   };
 
+  // Handle sheet deletion
+  const handleDeleteSheet = async () => {
+    try {
+      const response = await fetch(`/api/sheets?name=${sheetToDelete}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSheets(sheets.filter(sheet => sheet !== sheetToDelete));
+        if (currentSheet === sheetToDelete) {
+          setCurrentSheet('default');
+        }
+        setShowDeleteSheetModal(false);
+        setSheetToDelete('');
+      } else {
+        alert('Failed to delete sheet: ' + (data.error || 'Unknown error'));
+      }
+    } catch (error) {
+      console.error('Error deleting sheet:', error);
+    }
+  };
+
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}>
       {/* Import Success Modal */}
@@ -513,15 +537,109 @@ export default function Home() {
                     setShowNewSheetModal(false);
                     setNewSheetName('');
                   }}
-                  style={{ background: '#f5f5f5', color: '#333' }}
+                  style={{
+                    padding: '8px 16px',
+                    background: '#e0e0e0',
+                    color: '#333',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
                 >
                   Cancel
                 </button>
-                <button type="submit" style={{ background: '#0073aa' }}>
+                <button
+                  type="submit"
+                  style={{
+                    padding: '8px 16px',
+                    background: '#0073aa',
+                    color: '#ffffff',
+                    border: 'none',
+                    borderRadius: '4px',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    fontWeight: '500'
+                  }}
+                >
                   Create Sheet
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Delete Sheet Modal */}
+      {showDeleteSheetModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.3)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{ background: '#fff', borderRadius: '8px', padding: '32px', minWidth: '400px', maxWidth: '90vw', boxShadow: '0 4px 24px rgba(0,0,0,0.15)' }}>
+            <h2 style={{ marginTop: 0, color: '#d32f2f' }}>Delete Sheet</h2>
+            <p style={{ marginBottom: '20px', color: '#666' }}>Select a sheet to delete. This action cannot be undone.</p>
+            <div style={{ marginBottom: '20px' }}>
+              <select
+                value={sheetToDelete}
+                onChange={(e) => setSheetToDelete(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  fontSize: '14px',
+                  borderRadius: '4px',
+                  border: '1px solid #ddd'
+                }}
+              >
+                <option value="">Select a sheet</option>
+                {sheets.filter(sheet => sheet !== 'default').map(sheet => (
+                  <option key={sheet} value={sheet}>{sheet}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => {
+                  setShowDeleteSheetModal(false);
+                  setSheetToDelete('');
+                }}
+                style={{
+                  padding: '8px 16px',
+                  background: '#e0e0e0',
+                  color: '#333',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteSheet}
+                disabled={!sheetToDelete}
+                style={{
+                  padding: '8px 16px',
+                  background: '#b71c1c',
+                  color: '#ffffff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  fontSize: '14px',
+                  cursor: !sheetToDelete ? 'not-allowed' : 'pointer',
+                  opacity: !sheetToDelete ? 0.65 : 1,
+                  fontWeight: '500'
+                }}
+              >
+                Delete Sheet
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -627,6 +745,12 @@ export default function Home() {
                       onClick={() => { setFileMenuOpen(false); setShowNewSheetModal(true); }}
                     >
                       New Sheet
+                    </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={() => { setFileMenuOpen(false); setShowDeleteSheetModal(true); }}
+                    >
+                      Delete Sheet
                     </div>
                     <div
                       style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
