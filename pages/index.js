@@ -65,6 +65,9 @@ export default function Home() {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showDeleteSheetModal, setShowDeleteSheetModal] = useState(false);
   const [sheetToDelete, setSheetToDelete] = useState('');
+  const [expensePage, setExpensePage] = useState(1);
+  const [incomePage, setIncomePage] = useState(1);
+  const rowsPerPage = 15;
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -578,6 +581,45 @@ export default function Home() {
       console.error('Error deleting sheet:', error);
     }
   };
+
+  // Calculate pagination for expenses
+  const expenseStart = (expensePage - 1) * rowsPerPage;
+  const expenseEnd = expensePage * rowsPerPage;
+  const totalExpensePages = Math.ceil(expenses.length / rowsPerPage);
+  const currentExpenses = expenses
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(expenseStart, expenseEnd);
+
+  // Calculate pagination for income
+  const incomeStart = (incomePage - 1) * rowsPerPage;
+  const incomeEnd = incomePage * rowsPerPage;
+  const totalIncomePages = Math.ceil(income.length / rowsPerPage);
+  const currentIncome = income
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(incomeStart, incomeEnd);
+
+  // Pagination handlers
+  const handleExpensePrevPage = () => {
+    setExpensePage(prev => Math.max(1, prev - 1));
+  };
+
+  const handleExpenseNextPage = () => {
+    setExpensePage(prev => Math.min(totalExpensePages, prev + 1));
+  };
+
+  const handleIncomePrevPage = () => {
+    setIncomePage(prev => Math.max(1, prev - 1));
+  };
+
+  const handleIncomeNextPage = () => {
+    setIncomePage(prev => Math.min(totalIncomePages, prev + 1));
+  };
+
+  // Reset pagination when changing sheets
+  useEffect(() => {
+    setExpensePage(1);
+    setIncomePage(1);
+  }, [currentSheet]);
 
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}>
@@ -1105,7 +1147,7 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody>
-                      {expenses.map((expense) => (
+                      {currentExpenses.map((expense) => (
                         <tr key={expense.id} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '4px' }}>{expense.date}</td>
                           <td style={{ padding: '4px' }}>{expense.expense}</td>
@@ -1146,6 +1188,89 @@ export default function Home() {
                       ))}
                     </tbody>
                   </table>
+                  {/* Pagination controls for expenses */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '10px',
+                    borderTop: '1px solid #eee',
+                    backgroundColor: '#fff'
+                  }}>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                      Showing {expenseStart + 1}-{Math.min(expenseEnd, expenses.length)} of {expenses.length} entries
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={handleExpensePrevPage}
+                        disabled={expensePage === 1}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          background: expensePage === 1 ? '#f5f5f5' : '#fff',
+                          cursor: expensePage === 1 ? 'not-allowed' : 'pointer',
+                          color: expensePage === 1 ? '#999' : '#333'
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <span style={{ padding: '6px 12px', color: '#666' }}>
+                        Page {expensePage} of {totalExpensePages}
+                      </span>
+                      <button
+                        onClick={handleExpenseNextPage}
+                        disabled={expensePage >= totalExpensePages}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          background: expensePage >= totalExpensePages ? '#f5f5f5' : '#fff',
+                          cursor: expensePage >= totalExpensePages ? 'not-allowed' : 'pointer',
+                          color: expensePage >= totalExpensePages ? '#999' : '#333'
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                  {/* Summary section for expenses */}
+                  <div style={{
+                    borderTop: '2px solid #e0e0e0',
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '15px'
+                  }}>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: '#e8f5e9',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: '#2E7D32', marginBottom: '4px' }}>Total Expenses</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2E7D32' }}>₹{totalExpenses.toFixed(2)}</div>
+                    </div>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: '#e3f2fd',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: '#1565C0', marginBottom: '4px' }}>Total Income</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1565C0' }}>₹{totalIncome.toFixed(2)}</div>
+                    </div>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: cashFlow >= 0 ? '#e8f5e9' : '#ffebee',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: cashFlow >= 0 ? '#2E7D32' : '#C62828', marginBottom: '4px' }}>Cash Flow</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: cashFlow >= 0 ? '#2E7D32' : '#C62828' }}>₹{cashFlow.toFixed(2)}</div>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
@@ -1282,7 +1407,7 @@ export default function Home() {
                       </tr>
                     </thead>
                     <tbody>
-                      {income.map((item) => (
+                      {currentIncome.map((item) => (
                         <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
                           <td style={{ padding: '4px' }}>{item.date}</td>
                           <td style={{ padding: '4px' }}>{item.income}</td>
@@ -1323,6 +1448,89 @@ export default function Home() {
                       ))}
                     </tbody>
                   </table>
+                  {/* Pagination controls for income */}
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    padding: '10px',
+                    borderTop: '1px solid #eee',
+                    backgroundColor: '#fff'
+                  }}>
+                    <div style={{ fontSize: '14px', color: '#666' }}>
+                      Showing {incomeStart + 1}-{Math.min(incomeEnd, income.length)} of {income.length} entries
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button
+                        onClick={handleIncomePrevPage}
+                        disabled={incomePage === 1}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          background: incomePage === 1 ? '#f5f5f5' : '#fff',
+                          cursor: incomePage === 1 ? 'not-allowed' : 'pointer',
+                          color: incomePage === 1 ? '#999' : '#333'
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <span style={{ padding: '6px 12px', color: '#666' }}>
+                        Page {incomePage} of {totalIncomePages}
+                      </span>
+                      <button
+                        onClick={handleIncomeNextPage}
+                        disabled={incomePage >= totalIncomePages}
+                        style={{
+                          padding: '6px 12px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          background: incomePage >= totalIncomePages ? '#f5f5f5' : '#fff',
+                          cursor: incomePage >= totalIncomePages ? 'not-allowed' : 'pointer',
+                          color: incomePage >= totalIncomePages ? '#999' : '#333'
+                        }}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                  {/* Summary section for income */}
+                  <div style={{
+                    borderTop: '2px solid #e0e0e0',
+                    padding: '15px',
+                    backgroundColor: '#f8f9fa',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(3, 1fr)',
+                    gap: '15px'
+                  }}>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: '#e8f5e9',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: '#2E7D32', marginBottom: '4px' }}>Total Expenses</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#2E7D32' }}>₹{totalExpenses.toFixed(2)}</div>
+                    </div>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: '#e3f2fd',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: '#1565C0', marginBottom: '4px' }}>Total Income</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1565C0' }}>₹{totalIncome.toFixed(2)}</div>
+                    </div>
+                    <div style={{
+                      padding: '10px',
+                      backgroundColor: cashFlow >= 0 ? '#e8f5e9' : '#ffebee',
+                      borderRadius: '6px',
+                      textAlign: 'center'
+                    }}>
+                      <div style={{ fontSize: '13px', color: cashFlow >= 0 ? '#2E7D32' : '#C62828', marginBottom: '4px' }}>Cash Flow</div>
+                      <div style={{ fontSize: '16px', fontWeight: 'bold', color: cashFlow >= 0 ? '#2E7D32' : '#C62828' }}>₹{cashFlow.toFixed(2)}</div>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
