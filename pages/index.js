@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Bar, Pie } from 'react-chartjs-2';
+import { Bar, Pie, Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,10 +9,22 @@ import {
   Title,
   Tooltip,
   Legend,
-  ArcElement
+  ArcElement,
+  LineElement,
+  PointElement
 } from 'chart.js';
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend, ArcElement);
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+  LineElement,
+  PointElement
+);
 
 function excelDateToJSDate(serial) {
   if (typeof serial === 'string') return serial; // Already a string
@@ -68,6 +80,7 @@ export default function Home() {
   const [expensePage, setExpensePage] = useState(1);
   const [incomePage, setIncomePage] = useState(1);
   const rowsPerPage = 15;
+  const [analyzeMenuOpen, setAnalyzeMenuOpen] = useState(false);
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -984,6 +997,35 @@ export default function Home() {
                 style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s' }}
                 onClick={() => setSelectedSection('report')}
               >Report</span>
+              <span
+                style={{ cursor: 'pointer', padding: '2px 8px', borderRadius: '4px', transition: 'background 0.2s', position: 'relative' }}
+                onClick={() => setAnalyzeMenuOpen((open) => !open)}
+                onBlur={() => setTimeout(() => setAnalyzeMenuOpen(false), 200)}
+                tabIndex={0}
+              >
+                Analyze
+                {analyzeMenuOpen && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    background: '#fff',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: '4px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                    minWidth: '180px',
+                    zIndex: 1000,
+                    marginTop: '2px',
+                  }}>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={() => { setAnalyzeMenuOpen(false); setSelectedSection('cashflow_trend'); }}
+                    >
+                      Cash Flow Trend
+                    </div>
+                  </div>
+                )}
+              </span>
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -1745,6 +1787,143 @@ export default function Home() {
                     </div>
                   );
                 })()}
+              </div>
+            )}
+
+            {selectedSection === 'cashflow_trend' && (
+              <div style={{ marginTop: '0', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>Cash Flow Trend</h3>
+                {(() => {
+                  // Sort all transactions by date
+                  const allTransactions = [...expenses, ...income].sort((a, b) => new Date(a.date) - new Date(b.date));
+                  
+                  // Calculate cumulative values
+                  const dates = Array.from(new Set(allTransactions.map(t => t.date))).sort();
+                  const cumulativeExpenses = [];
+                  const cumulativeIncomes = [];
+                  const cashFlows = [];
+
+                  dates.forEach(date => {
+                    const dayExpenses = expenses
+                      .filter(e => e.date <= date)
+                      .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                    
+                    const dayIncome = income
+                      .filter(i => i.date <= date)
+                      .reduce((sum, i) => sum + parseFloat(i.amount), 0);
+
+                    cumulativeExpenses.push(dayExpenses);
+                    cumulativeIncomes.push(dayIncome);
+                    cashFlows.push(dayIncome - dayExpenses);
+                  });
+
+                  return (
+                    <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <Line
+                        data={{
+                          labels: dates,
+                          datasets: [
+                            {
+                              label: 'Cumulative Income',
+                              data: cumulativeIncomes,
+                              borderColor: '#2196F3',
+                              backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                              fill: true,
+                              tension: 0.4
+                            },
+                            {
+                              label: 'Cumulative Expense',
+                              data: cumulativeExpenses,
+                              borderColor: '#4CAF50',
+                              backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                              fill: true,
+                              tension: 0.4
+                            },
+                            {
+                              label: 'Cash Flow',
+                              data: cashFlows,
+                              borderColor: '#FFC107',
+                              backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                              fill: true,
+                              tension: 0.4
+                            }
+                          ],
+                        }}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: {
+                              position: 'top',
+                            },
+                            tooltip: {
+                              callbacks: {
+                                label: function(context) {
+                                  return `${context.dataset.label}: ₹${context.parsed.y.toFixed(2)}`;
+                                }
+                              }
+                            }
+                          },
+                          scales: {
+                            x: {
+                              title: {
+                                display: true,
+                                text: 'Date'
+                              }
+                            },
+                            y: {
+                              title: {
+                                display: true,
+                                text: 'Amount (₹)'
+                              }
+                            }
+                          }
+                        }}
+                      />
+                    </div>
+                  );
+                })()}
+
+                {/* Summary Statistics */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '20px',
+                  marginTop: '20px'
+                }}>
+                  <div style={{
+                    background: '#e3f2fd',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#1565C0' }}>Average Monthly Income</h4>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#1565C0', margin: 0 }}>
+                      ₹{(totalIncome / (new Set(income.map(i => i.date.substring(0, 7))).size || 1)).toFixed(2)}
+                    </p>
+                  </div>
+                  <div style={{
+                    background: '#e8f5e9',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: '#2E7D32' }}>Average Monthly Expense</h4>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#2E7D32', margin: 0 }}>
+                      ₹{(totalExpenses / (new Set(expenses.map(e => e.date.substring(0, 7))).size || 1)).toFixed(2)}
+                    </p>
+                  </div>
+                  <div style={{
+                    background: cashFlow >= 0 ? '#e8f5e9' : '#ffebee',
+                    padding: '20px',
+                    borderRadius: '8px',
+                    textAlign: 'center'
+                  }}>
+                    <h4 style={{ margin: '0 0 10px 0', color: cashFlow >= 0 ? '#2E7D32' : '#C62828' }}>Average Monthly Cash Flow</h4>
+                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: cashFlow >= 0 ? '#2E7D32' : '#C62828', margin: 0 }}>
+                      ₹{(cashFlow / (new Set([...expenses, ...income].map(t => t.date.substring(0, 7))).size || 1)).toFixed(2)}
+                    </p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
