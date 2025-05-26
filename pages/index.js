@@ -62,10 +62,10 @@ export default function Home() {
   const [importedExpenses, setImportedExpenses] = useState([]);
   const [importedIncome, setImportedIncome] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([
-    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 'food * entertainment', 'mobile', 'pet care','salary'
+    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas',
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
-    'rent received', 'interest', 'annuity'
+    'rent received', 'interest', 'annuity', 'salary', 'other'
   ]);
   const [showExpenseCategoryInput, setShowExpenseCategoryInput] = useState(false);
   const [showIncomeCategoryInput, setShowIncomeCategoryInput] = useState(false);
