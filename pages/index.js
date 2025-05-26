@@ -62,7 +62,7 @@ export default function Home() {
   const [importedExpenses, setImportedExpenses] = useState([]);
   const [importedIncome, setImportedIncome] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([
-    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent'
+    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 'food * entertainment', 'mobile', 'pet care','salary'
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
     'rent received', 'interest', 'annuity'
@@ -71,7 +71,7 @@ export default function Home() {
   const [showIncomeCategoryInput, setShowIncomeCategoryInput] = useState(false);
   const [newExpenseCategory, setNewExpenseCategory] = useState('');
   const [newIncomeCategory, setNewIncomeCategory] = useState('');
-  const [reportType, setReportType] = useState('expense');
+  const [reportType, setReportType] = useState('expense')
   const [reportFromDate, setReportFromDate] = useState('');
   const [reportToDate, setReportToDate] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
