@@ -62,7 +62,8 @@ export default function Home() {
   const [importedExpenses, setImportedExpenses] = useState([]);
   const [importedIncome, setImportedIncome] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([
-    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas',
+    'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 
+    'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas','car maintrenance','house maintrenance',
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
     'rent received', 'interest', 'annuity', 'salary', 'other'
@@ -71,7 +72,7 @@ export default function Home() {
   const [showIncomeCategoryInput, setShowIncomeCategoryInput] = useState(false);
   const [newExpenseCategory, setNewExpenseCategory] = useState('');
   const [newIncomeCategory, setNewIncomeCategory] = useState('');
-  const [reportType, setReportType] = useState('expense')
+  const [reportType, setReportType] = useState('expense');
   const [reportFromDate, setReportFromDate] = useState('');
   const [reportToDate, setReportToDate] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -81,6 +82,9 @@ export default function Home() {
   const [incomePage, setIncomePage] = useState(1);
   const rowsPerPage = 15;
   const [analyzeMenuOpen, setAnalyzeMenuOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [showMonthlyTrend, setShowMonthlyTrend] = useState(false);
+  const [selectedCategories, setSelectedCategories] = useState([]);
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -1023,6 +1027,12 @@ export default function Home() {
                     >
                       Cash Flow Trend
                     </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={() => { setAnalyzeMenuOpen(false); setSelectedSection('category_trend'); }}
+                    >
+                      Category Trend
+                    </div>
                   </div>
                 )}
               </span>
@@ -1689,11 +1699,22 @@ export default function Home() {
                     <label style={{ fontWeight: 500, marginRight: '10px' }}>Report Type:</label>
                     <select
                       value={reportType}
-                      onChange={e => setReportType(e.target.value)}
+                      onChange={e => {
+                        setReportType(e.target.value);
+                        setShowMonthlyTrend(e.target.value === 'monthly_trend');
+                        if (e.target.value === 'monthly_trend') {
+                          // Initialize with first 3 categories or fewer if not enough categories
+                          if (selectedCategories.length === 0 && expenseCategories.length > 0) {
+                            const initialCategories = expenseCategories.slice(0, Math.min(3, expenseCategories.length));
+                            setSelectedCategories(initialCategories);
+                          }
+                        }
+                      }}
                       style={{ padding: '6px 12px', fontSize: '14px', borderRadius: '4px', border: '1px solid #ccc' }}
                     >
                       <option value="expense">Expense</option>
                       <option value="income">Income</option>
+                      <option value="monthly_trend">Show monthly trend</option>
                     </select>
                   </div>
                   <div>
@@ -1715,8 +1736,273 @@ export default function Home() {
                     />
                   </div>
                 </div>
+                
+                {/* Category Selection for Monthly Trend */}
+                {reportType === 'monthly_trend' && (
+                  <div style={{ 
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '20px',
+                    marginBottom: '10px'
+                  }}>
+                    {/* Category Checkboxes - Left Side */}
+                    <div style={{ 
+                      width: '250px',
+                      backgroundColor: '#f5f5f5',
+                      padding: '15px',
+                      borderRadius: '8px',
+                      maxHeight: '500px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontWeight: 'bold', fontSize: '14px' }}>Select Categories:</label>
+                      </div>
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {expenseCategories.map((category, index) => (
+                          <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              id={`report-category-${index}`}
+                              name="report-category"
+                              value={category}
+                              checked={selectedCategories.includes(category)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCategories([...selectedCategories, category]);
+                                } else {
+                                  setSelectedCategories(selectedCategories.filter(c => c !== category));
+                                }
+                              }}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <label 
+                              htmlFor={`report-category-${index}`}
+                              style={{ fontSize: '14px', cursor: 'pointer' }}
+                            >
+                              {category.charAt(0).toUpperCase() + category.slice(1)}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div style={{ marginTop: '15px', display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => setSelectedCategories(expenseCategories)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            background: '#2196F3',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setSelectedCategories([])}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            background: '#f44336',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Chart content - will be shown on the right side */}
+                    <div style={{ flex: 1 }}>
+                      {/* Monthly Trend Chart */}
+                      {selectedCategories.length > 0 ? (
+                        (() => {
+                          // Get all dates in the filtered period
+                          let filteredExpenses = expenses;
+                          if (reportFromDate || reportToDate) {
+                            filteredExpenses = expenses.filter(item => {
+                              if (reportFromDate && item.date < reportFromDate) return false;
+                              if (reportToDate && item.date > reportToDate) return false;
+                              return true;
+                            });
+                          }
+
+                          // Get dates
+                          const allDates = [...new Set(filteredExpenses.map(e => e.date))].sort();
+                          
+                          // Generate colors for each category
+                          const categoryColors = [
+                            { borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' },  // Green
+                            { borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)' }, // Blue
+                            { borderColor: '#FFC107', backgroundColor: 'rgba(255, 193, 7, 0.1)' },  // Yellow
+                            { borderColor: '#F44336', backgroundColor: 'rgba(244, 67, 54, 0.1)' },  // Red
+                            { borderColor: '#9C27B0', backgroundColor: 'rgba(156, 39, 176, 0.1)' }, // Purple
+                            { borderColor: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' },  // Orange
+                            { borderColor: '#795548', backgroundColor: 'rgba(121, 85, 72, 0.1)' },  // Brown
+                            { borderColor: '#607D8B', backgroundColor: 'rgba(96, 125, 139, 0.1)' }, // Blue Grey
+                            { borderColor: '#E91E63', backgroundColor: 'rgba(233, 30, 99, 0.1)' },  // Pink
+                            { borderColor: '#00BCD4', backgroundColor: 'rgba(0, 188, 212, 0.1)' },  // Cyan
+                          ];
+                          
+                          // Create datasets for each selected category
+                          const datasets = selectedCategories.map((category, index) => {
+                            // Filter expenses for this category
+                            const categoryExpenses = filteredExpenses.filter(e => e.category === category);
+                            
+                            // Create data points for each date for this category
+                            const dataPoints = allDates.map(date => {
+                              const dayExpenses = categoryExpenses
+                                .filter(e => e.date === date)
+                                .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                              return dayExpenses;
+                            });
+                            
+                            // Get color for this category (cycle through colors if more categories than colors)
+                            const colorIndex = index % categoryColors.length;
+                            const color = categoryColors[colorIndex];
+                            
+                            return {
+                              label: category.charAt(0).toUpperCase() + category.slice(1),
+                              data: dataPoints,
+                              borderColor: color.borderColor,
+                              backgroundColor: color.backgroundColor,
+                              fill: false,
+                              tension: 0.4
+                            };
+                          });
+                          
+                          // Generate labels for dates
+                          const dateLabels = allDates.map(date => date);
+                          
+                          // Calculate total for all selected categories
+                          const totalForSelectedCategories = filteredExpenses
+                            .filter(e => selectedCategories.includes(e.category))
+                            .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                          
+                          // Transaction count for all selected categories
+                          const transactionCount = filteredExpenses
+                            .filter(e => selectedCategories.includes(e.category))
+                            .length;
+                          
+                          return (
+                            <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                              <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#4CAF50' }}>
+                                Category Expenses Over Time
+                              </h4>
+                              <Line
+                                data={{
+                                  labels: dateLabels,
+                                  datasets: datasets,
+                                }}
+                                options={{
+                                  responsive: true,
+                                  plugins: {
+                                    legend: {
+                                      position: 'top',
+                                      labels: {
+                                        boxWidth: 12
+                                      }
+                                    },
+                                    tooltip: {
+                                      callbacks: {
+                                        label: function(context) {
+                                          return `${context.dataset.label}: ₹${context.parsed.y.toFixed(2)}`;
+                                        }
+                                      }
+                                    }
+                                  },
+                                  scales: {
+                                    x: {
+                                      title: {
+                                        display: true,
+                                        text: 'Date'
+                                      }
+                                    },
+                                    y: {
+                                      title: {
+                                        display: true,
+                                        text: 'Amount (₹)'
+                                      },
+                                      beginAtZero: true
+                                    }
+                                  }
+                                }}
+                              />
+                              
+                              {/* Summary Statistics for Selected Categories */}
+                              <div style={{ 
+                                marginTop: '30px',
+                                background: '#f5f5f5',
+                                padding: '20px',
+                                borderRadius: '8px'
+                              }}>
+                                <h4 style={{ margin: '0 0 15px 0', color: '#333' }}>
+                                  Selected Categories Statistics
+                                </h4>
+                                
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Total Spent</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                      ₹{totalForSelectedCategories.toFixed(2)}
+                                    </div>
+                                  </div>
+                                  
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Average per Transaction</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                      {transactionCount 
+                                        ? `₹${(totalForSelectedCategories / transactionCount).toFixed(2)}`
+                                        : '₹0.00'}
+                                    </div>
+                                  </div>
+                                  
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Transaction Count</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                      {transactionCount}
+                                    </div>
+                                  </div>
+                                  
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>% of Total Expenses</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#4CAF50' }}>
+                                      {(() => {
+                                        const totalExpensesInPeriod = filteredExpenses.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                                        return totalExpensesInPeriod > 0 
+                                          ? `${((totalForSelectedCategories / totalExpensesInPeriod) * 100).toFixed(1)}%`
+                                          : '0.0%';
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div style={{ 
+                          padding: '30px', 
+                          background: '#f9f9f9', 
+                          borderRadius: '8px', 
+                          textAlign: 'center',
+                          color: '#666'
+                        }}>
+                          Please select at least one category to view trend data
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {/* Filtered data for charts */}
-                {(() => {
+                {reportType !== 'monthly_trend' && (() => {
                   const allData = reportType === 'expense' ? expenses : income;
                   const filteredData = allData.filter(item => {
                     if (reportFromDate && item.date < reportFromDate) return false;
@@ -1924,6 +2210,39 @@ export default function Home() {
                     </p>
                   </div>
                 </div>
+              </div>
+            )}
+
+            {selectedSection === 'category_trend' && (
+              <div style={{ marginTop: '0', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>
+                  Category Trend Analysis has been moved to the Report section.
+                </h3>
+                <p style={{ color: '#666' }}>
+                  Please go to the "Report" menu and select "Show monthly trend" from the dropdown to view category trends.
+                </p>
+                <button 
+                  onClick={() => {
+                    setSelectedSection('report');
+                    setReportType('monthly_trend');
+                    if (!selectedCategories.length && expenseCategories.length > 0) {
+                      const initialCategories = expenseCategories.slice(0, Math.min(3, expenseCategories.length));
+                      setSelectedCategories(initialCategories);
+                    }
+                  }}
+                  style={{
+                    alignSelf: 'flex-start',
+                    padding: '8px 16px',
+                    backgroundColor: '#0073aa',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Go to Monthly Trend Report
+                </button>
               </div>
             )}
           </div>
