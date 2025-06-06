@@ -85,6 +85,7 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('');
   const [showMonthlyTrend, setShowMonthlyTrend] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
+  const [showCumulative, setShowCumulative] = useState(false);
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -1759,6 +1760,23 @@ export default function Home() {
                       </div>
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Trend Type Selection */}
+                        <div style={{ 
+                          padding: '10px', 
+                          backgroundColor: '#fff', 
+                          borderRadius: '4px',
+                          marginBottom: '10px'
+                        }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={showCumulative}
+                              onChange={(e) => setShowCumulative(e.target.checked)}
+                            />
+                            <span style={{ fontSize: '14px' }}>Show Cumulative Trend</span>
+                          </label>
+                        </div>
+
                         {expenseCategories.map((category, index) => (
                           <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
                             <input
@@ -1851,30 +1869,55 @@ export default function Home() {
                           ];
                           
                           // Create datasets for each selected category
-                          const datasets = selectedCategories.map((category, index) => {
+                          const datasets = selectedCategories.flatMap((category, index) => {
                             // Filter expenses for this category
                             const categoryExpenses = filteredExpenses.filter(e => e.category === category);
-                            
-                            // Create data points for each date for this category
-                            const dataPoints = allDates.map(date => {
-                              const dayExpenses = categoryExpenses
-                                .filter(e => e.date === date)
-                                .reduce((sum, e) => sum + parseFloat(e.amount), 0);
-                              return dayExpenses;
-                            });
                             
                             // Get color for this category (cycle through colors if more categories than colors)
                             const colorIndex = index % categoryColors.length;
                             const color = categoryColors[colorIndex];
                             
-                            return {
+                            // Create regular trend data points
+                            const regularDataPoints = allDates.map(date => {
+                              const dayExpenses = categoryExpenses
+                                .filter(e => e.date === date)
+                                .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                              return dayExpenses;
+                            });
+
+                            // Create base dataset
+                            const baseDataset = {
                               label: category.charAt(0).toUpperCase() + category.slice(1),
-                              data: dataPoints,
+                              data: regularDataPoints,
                               borderColor: color.borderColor,
                               backgroundColor: color.backgroundColor,
                               fill: false,
                               tension: 0.4
                             };
+
+                            // If cumulative trend is enabled, add cumulative dataset
+                            if (showCumulative) {
+                              const cumulativeDataPoints = allDates.map((date, index) => {
+                                return categoryExpenses
+                                  .filter(e => e.date <= date)
+                                  .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                              });
+
+                              return [
+                                baseDataset,
+                                {
+                                  label: `${category.charAt(0).toUpperCase() + category.slice(1)} (Cumulative)`,
+                                  data: cumulativeDataPoints,
+                                  borderColor: color.borderColor,
+                                  backgroundColor: 'transparent',
+                                  borderDash: [5, 5],
+                                  fill: false,
+                                  tension: 0
+                                }
+                              ];
+                            }
+
+                            return [baseDataset];
                           });
                           
                           // Generate labels for dates
@@ -1929,7 +1972,11 @@ export default function Home() {
                                         display: true,
                                         text: 'Amount (₹)'
                                       },
-                                      beginAtZero: true
+                                      grid: {
+                                        drawOnChartArea: true,
+                                        color: (context) => context.tick.value === 0 ? '#666' : '#e0e0e0',
+                                        lineWidth: (context) => context.tick.value === 0 ? 3 : 0.5
+                                      }
                                     }
                                   }
                                 }}
@@ -2160,6 +2207,11 @@ export default function Home() {
                               title: {
                                 display: true,
                                 text: 'Amount (₹)'
+                              },
+                              grid: {
+                                drawOnChartArea: true,
+                                color: (context) => context.tick.value === 0 ? '#666' : '#e0e0e0',
+                                lineWidth: (context) => context.tick.value === 0 ? 3 : 0.5
                               }
                             }
                           }
