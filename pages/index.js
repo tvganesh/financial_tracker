@@ -63,7 +63,7 @@ export default function Home() {
   const [importedIncome, setImportedIncome] = useState([]);
   const [expenseCategories, setExpenseCategories] = useState([
     'grocery', 'internet', 'misc', 'transport', 'petrol', 'rent','charity','college','doctor & medicines', 
-    'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas','car maintrenance','house maintrenance',
+    'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas','personal care','car maintrenance','house maintrenance',
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
     'rent received', 'interest', 'annuity', 'salary', 'other'
@@ -2056,66 +2056,141 @@ export default function Home() {
                     if (reportToDate && item.date > reportToDate) return false;
                     return true;
                   });
-                  const categories = Array.from(new Set(filteredData.map(e => e.category)));
-                  const amounts = categories.map(cat =>
-                    filteredData.filter(e => e.category === cat).reduce((sum, e) => sum + parseFloat(e.amount), 0)
-                  );
+                  
+                  // Group by category and sum the amounts
+                  const categoryMap = new Map();
+                  filteredData.forEach(item => {
+                    const currentAmount = categoryMap.get(item.category) || 0;
+                    categoryMap.set(item.category, currentAmount + parseFloat(item.amount));
+                  });
+                  
+                  // Sort categories by amount (highest to lowest)
+                  const sortedCategories = Array.from(categoryMap.entries())
+                    .sort((a, b) => b[1] - a[1]);
+                  
+                  // Extract sorted categories and amounts
+                  const categories = sortedCategories.map(entry => entry[0]);
+                  const amounts = sortedCategories.map(entry => entry[1]);
+                  
+                  // Generate color palette based on the number of categories
+                  const generateColorPalette = (count) => {
+                    // Different color schemes based on report type
+                    const colors = reportType === 'expense' ? 
+                      [
+                        '#4CAF50', '#66BB6A', '#81C784', '#A5D6A7', '#C8E6C9', // Green shades
+                        '#2196F3', '#42A5F5', '#64B5F6', '#90CAF9', '#BBDEFB', // Blue shades
+                        '#FFC107', '#FFCA28', '#FFD54F', '#FFE082', '#FFECB3', // Yellow/amber shades
+                      ] :
+                      [
+                        '#2196F3', '#42A5F5', '#64B5F6', '#90CAF9', '#BBDEFB', // Blue shades
+                        '#9C27B0', '#AB47BC', '#BA68C8', '#CE93D8', '#E1BEE7', // Purple shades
+                        '#FF9800', '#FFA726', '#FFB74D', '#FFCC80', '#FFE0B2', // Orange shades
+                      ];
+                    
+                    // If we have more categories than colors, we'll cycle through the colors
+                    return categories.map((_, i) => colors[i % colors.length]);
+                  };
+                  
+                  const barColors = generateColorPalette(categories.length);
+                  
                   return (
-                    <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-                      {/* Bar Chart by Category */}
-                      <div style={{ flex: 1, minWidth: '320px', background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                    <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
+                      {/* Bar Chart by Category - Larger */}
+                      <div style={{ flex: '3', minWidth: '500px', background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                         <h4 style={{ margin: '0 0 12px 0', color: reportType === 'expense' ? '#4CAF50' : '#2196F3' }}>
                           {reportType === 'expense' ? 'Expenses' : 'Income'} by Category (Bar)
                         </h4>
-                        <Bar
-                          data={{
-                            labels: categories,
-                            datasets: [
-                              {
-                                label: 'Amount',
-                                data: amounts,
-                                backgroundColor: reportType === 'expense' ? '#4CAF50' : '#2196F3',
+                        <div style={{ height: `${Math.max(350, categories.length * 30)}px` }}>
+                          <Bar
+                            data={{
+                              labels: categories,
+                              datasets: [
+                                {
+                                  label: 'Amount',
+                                  data: amounts,
+                                  backgroundColor: barColors,
+                                },
+                              ],
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              indexAxis: 'y',  // Horizontal bar chart
+                              plugins: {
+                                legend: { display: false },
+                                title: { display: false },
+                                tooltip: {
+                                  callbacks: {
+                                    label: function(context) {
+                                      return `₹${context.parsed.x.toFixed(2)}`;
+                                    }
+                                  }
+                                }
                               },
-                            ],
-                          }}
-                          options={{
-                            responsive: true,
-                            plugins: {
-                              legend: { display: false },
-                              title: { display: false },
-                            },
-                            scales: {
-                              y: { beginAtZero: true }
-                            }
-                          }}
-                        />
+                              scales: {
+                                x: { 
+                                  beginAtZero: true,
+                                  title: {
+                                    display: true,
+                                    text: 'Amount (₹)'
+                                  }
+                                },
+                                y: {
+                                  title: {
+                                    display: true,
+                                    text: 'Category'
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                        </div>
                       </div>
-                      {/* Pie Chart by Category */}
-                      <div style={{ flex: 1, minWidth: '320px', background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      
+                      {/* Pie Chart by Category - Smaller */}
+                      <div style={{ flex: '1', minWidth: '300px', background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
                         <h4 style={{ margin: '0 0 12px 0', color: reportType === 'expense' ? '#4CAF50' : '#2196F3' }}>
                           {reportType === 'expense' ? 'Expenses' : 'Income'} by Category (Pie)
                         </h4>
-                        <Pie
-                          data={{
-                            labels: categories,
-                            datasets: [
-                              {
-                                label: 'Amount',
-                                data: amounts,
-                                backgroundColor: [
-                                  '#4CAF50', '#2196F3', '#FFC107', '#FF5722', '#9C27B0', '#607D8B', '#E91E63', '#00BCD4', '#8BC34A', '#FF9800'
-                                ],
+                        <div style={{ height: '350px' }}>
+                          <Pie
+                            data={{
+                              labels: categories,
+                              datasets: [
+                                {
+                                  label: 'Amount',
+                                  data: amounts,
+                                  backgroundColor: barColors,
+                                },
+                              ],
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: { 
+                                  position: 'right',
+                                  labels: {
+                                    boxWidth: 12,
+                                    font: {
+                                      size: 11
+                                    }
+                                  }
+                                },
+                                title: { display: false },
+                                tooltip: {
+                                  callbacks: {
+                                    label: function(context) {
+                                      const total = context.dataset.data.reduce((sum, val) => sum + val, 0);
+                                      const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                      return `${context.label}: ₹${context.parsed.toFixed(2)} (${percentage}%)`;
+                                    }
+                                  }
+                                }
                               },
-                            ],
-                          }}
-                          options={{
-                            responsive: true,
-                            plugins: {
-                              legend: { position: 'bottom' },
-                              title: { display: false },
-                            },
-                          }}
-                        />
+                            }}
+                          />
+                        </div>
                       </div>
                     </div>
                   );
