@@ -86,6 +86,8 @@ export default function Home() {
   const [showMonthlyTrend, setShowMonthlyTrend] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [showCumulative, setShowCumulative] = useState(false);
+  const [allSheetsData, setAllSheetsData] = useState({ expenses: [], income: [] });
+  const [isLoadingReport, setIsLoadingReport] = useState(false);
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -639,6 +641,51 @@ export default function Home() {
     setIncomePage(1);
   }, [currentSheet]);
 
+  // Add this useEffect at the component level (outside any conditional rendering)
+  useEffect(() => {
+    const fetchAllSheetsData = async () => {
+      if (selectedSection !== 'monthly_report') return;
+      
+      setIsLoadingReport(true);
+      try {
+        const allExpenses = [];
+        const allIncome = [];
+        
+        // Get all sheets except default
+        const sheetsToProcess = sheets.filter(sheet => sheet !== 'default');
+        
+        // Fetch data for each sheet
+        for (const sheet of sheetsToProcess) {
+          console.log(`Fetching data for sheet: ${sheet}`);
+          
+          // Fetch expenses
+          const expResponse = await fetch(`/api/expenses?sheet=${sheet}`);
+          const expData = await expResponse.json();
+          if (expData.success) {
+            allExpenses.push(...expData.data.map(item => ({...item, sheet_name: sheet})));
+          }
+          
+          // Fetch income
+          const incResponse = await fetch(`/api/income?sheet=${sheet}`);
+          const incData = await incResponse.json();
+          if (incData.success) {
+            allIncome.push(...incData.data.map(item => ({...item, sheet_name: sheet})));
+          }
+        }
+        
+        setAllSheetsData({ expenses: allExpenses, income: allIncome });
+      } catch (error) {
+        console.error('Error fetching all sheets data:', error);
+      } finally {
+        setIsLoadingReport(false);
+      }
+    };
+    
+    if (selectedSection === 'monthly_report') {
+      fetchAllSheetsData();
+    }
+  }, [selectedSection, sheets]);
+
   return (
     <div style={{ minHeight: '100vh', fontFamily: 'Arial, sans-serif', fontSize: '14px' }}>
       {/* Import Success Modal */}
@@ -1030,9 +1077,9 @@ export default function Home() {
                     </div>
                     <div
                       style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
-                      onClick={() => { setAnalyzeMenuOpen(false); setSelectedSection('category_trend'); }}
+                      onClick={() => { setAnalyzeMenuOpen(false); setSelectedSection('monthly_report'); }}
                     >
-                      Category Trend
+                      Monthly Cash Flow
                     </div>
                   </div>
                 )}
@@ -1390,7 +1437,7 @@ export default function Home() {
                             style={{ width: '70%', padding: '6px', fontSize: '13px' }}
                             autoFocus
                           />
-                          <button type="submit" style={{ padding: '6px 10px', fontSize: '13px', background: '#2196F3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add</button>
+                          <button type="submit" style={{ padding: '6px 10px', fontSize: '13px', background: '#4CAF50', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Add</button>
                           <button type="button" onClick={() => setShowIncomeCategoryInput(false)} style={{ padding: '6px 10px', fontSize: '13px', background: '#f44336', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Cancel</button>
                         </form>
                       )}
@@ -2295,81 +2342,164 @@ export default function Home() {
                     </div>
                   );
                 })()}
-
-                {/* Summary Statistics */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '20px',
-                  marginTop: '20px'
-                }}>
-                  <div style={{
-                    background: '#e3f2fd',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#1565C0' }}>Average Monthly Income</h4>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#1565C0', margin: 0 }}>
-                      ₹{(totalIncome / (new Set(income.map(i => i.date.substring(0, 7))).size || 1)).toFixed(2)}
-                    </p>
-                  </div>
-                  <div style={{
-                    background: '#e8f5e9',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: '#2E7D32' }}>Average Monthly Expense</h4>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#2E7D32', margin: 0 }}>
-                      ₹{(totalExpenses / (new Set(expenses.map(e => e.date.substring(0, 7))).size || 1)).toFixed(2)}
-                    </p>
-                  </div>
-                  <div style={{
-                    background: cashFlow >= 0 ? '#e8f5e9' : '#ffebee',
-                    padding: '20px',
-                    borderRadius: '8px',
-                    textAlign: 'center'
-                  }}>
-                    <h4 style={{ margin: '0 0 10px 0', color: cashFlow >= 0 ? '#2E7D32' : '#C62828' }}>Average Monthly Cash Flow</h4>
-                    <p style={{ fontSize: '18px', fontWeight: 'bold', color: cashFlow >= 0 ? '#2E7D32' : '#C62828', margin: 0 }}>
-                      ₹{(cashFlow / (new Set([...expenses, ...income].map(t => t.date.substring(0, 7))).size || 1)).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
               </div>
             )}
 
-            {selectedSection === 'category_trend' && (
+            {selectedSection === 'monthly_report' && (
               <div style={{ marginTop: '0', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>
-                  Category Trend Analysis has been moved to the Report section.
-                </h3>
-                <p style={{ color: '#666' }}>
-                  Please go to the "Report" menu and select "Show monthly trend" from the dropdown to view category trends.
-                </p>
-                <button 
-                  onClick={() => {
-                    setSelectedSection('report');
-                    setReportType('monthly_trend');
-                    if (!selectedCategories.length && expenseCategories.length > 0) {
-                      const initialCategories = expenseCategories.slice(0, Math.min(3, expenseCategories.length));
-                      setSelectedCategories(initialCategories);
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>Monthly Cash Flow Report (All Sheets)</h3>
+                {(() => {
+                  if (isLoadingReport) {
+                    return (
+                      <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                        Loading data from all sheets...
+                      </div>
+                    );
+                  }
+                  
+                  // Group transactions by month
+                  const monthlyData = {};
+                  
+                  // Process all expenses
+                  allSheetsData.expenses.forEach(expense => {
+                    // Extract year-month from the date
+                    const yearMonth = expense.date.substring(0, 7); // Format: YYYY-MM
+                    
+                    if (!monthlyData[yearMonth]) {
+                      monthlyData[yearMonth] = { expenses: 0, income: 0 };
                     }
-                  }}
-                  style={{
-                    alignSelf: 'flex-start',
-                    padding: '8px 16px',
-                    backgroundColor: '#0073aa',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '14px'
-                  }}
-                >
-                  Go to Monthly Trend Report
-                </button>
+                    
+                    monthlyData[yearMonth].expenses += parseFloat(expense.amount);
+                  });
+                  
+                  // Process all income
+                  allSheetsData.income.forEach(inc => {
+                    const yearMonth = inc.date.substring(0, 7);
+                    
+                    if (!monthlyData[yearMonth]) {
+                      monthlyData[yearMonth] = { expenses: 0, income: 0 };
+                    }
+                    
+                    monthlyData[yearMonth].income += parseFloat(inc.amount);
+                  });
+                  
+                  // Calculate cash flow for each month
+                  Object.keys(monthlyData).forEach(month => {
+                    monthlyData[month].cashFlow = monthlyData[month].income - monthlyData[month].expenses;
+                  });
+                  
+                  // Sort months in descending order (newest first)
+                  const sortedMonths = Object.keys(monthlyData).sort().reverse();
+                  
+                  // Calculate totals and averages
+                  const totalMonths = sortedMonths.length;
+                  const totalExpenses = Object.values(monthlyData).reduce((sum, data) => sum + data.expenses, 0);
+                  const totalIncome = Object.values(monthlyData).reduce((sum, data) => sum + data.income, 0);
+                  const totalCashFlow = Object.values(monthlyData).reduce((sum, data) => sum + data.cashFlow, 0);
+                  
+                  const averageExpenses = totalMonths > 0 ? totalExpenses / totalMonths : 0;
+                  const averageIncome = totalMonths > 0 ? totalIncome / totalMonths : 0;
+                  const averageCashFlow = totalMonths > 0 ? totalCashFlow / totalMonths : 0;
+                  
+                  // Format month for display (YYYY-MM to Month YYYY)
+                  const formatMonth = (yearMonth) => {
+                    const [year, month] = yearMonth.split('-');
+                    const date = new Date(year, parseInt(month) - 1);
+                    return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+                  };
+                  
+                  return (
+                    <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                      <div style={{ marginBottom: '15px', backgroundColor: '#e3f2fd', padding: '10px', borderRadius: '4px', fontSize: '14px' }}>
+                        <strong>Note:</strong> This report shows data from all sheets except the default sheet.
+                      </div>
+                      
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                          <thead>
+                            <tr style={{ backgroundColor: '#f3e5f5' }}>
+                              <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Month</th>
+                              <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>Expenses (₹)</th>
+                              <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>Income (₹)</th>
+                              <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>Cash Flow (₹)</th>
+                              <th style={{ padding: '12px', textAlign: 'center', borderBottom: '2px solid #ddd' }}>Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sortedMonths.map(month => (
+                              <tr key={month} style={{ borderBottom: '1px solid #eee' }}>
+                                <td style={{ padding: '10px', fontWeight: 500 }}>{formatMonth(month)}</td>
+                                <td style={{ padding: '10px', textAlign: 'right', color: '#4CAF50', fontWeight: 500 }}>
+                                  {monthlyData[month].expenses.toFixed(2)}
+                                </td>
+                                <td style={{ padding: '10px', textAlign: 'right', color: '#2196F3', fontWeight: 500 }}>
+                                  {monthlyData[month].income.toFixed(2)}
+                                </td>
+                                <td style={{ 
+                                  padding: '10px', 
+                                  textAlign: 'right', 
+                                  color: monthlyData[month].cashFlow >= 0 ? '#2E7D32' : '#C62828',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {monthlyData[month].cashFlow.toFixed(2)}
+                                </td>
+                                <td style={{ padding: '10px', textAlign: 'center' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    padding: '4px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    backgroundColor: monthlyData[month].cashFlow >= 0 ? '#e8f5e9' : '#ffebee',
+                                    color: monthlyData[month].cashFlow >= 0 ? '#2E7D32' : '#C62828',
+                                  }}>
+                                    {monthlyData[month].cashFlow >= 0 ? 'Surplus' : 'Deficit'}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+                              <td style={{ padding: '12px', borderTop: '2px solid #ddd' }}>TOTAL</td>
+                              <td style={{ padding: '12px', textAlign: 'right', borderTop: '2px solid #ddd', color: '#4CAF50' }}>
+                                {totalExpenses.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'right', borderTop: '2px solid #ddd', color: '#2196F3' }}>
+                                {totalIncome.toFixed(2)}
+                              </td>
+                              <td style={{ 
+                                padding: '12px', 
+                                textAlign: 'right', 
+                                borderTop: '2px solid #ddd',
+                                color: totalCashFlow >= 0 ? '#2E7D32' : '#C62828'
+                              }}>
+                                {totalCashFlow.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'center', borderTop: '2px solid #ddd' }}></td>
+                            </tr>
+                            <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+                              <td style={{ padding: '12px' }}>MONTHLY AVERAGE</td>
+                              <td style={{ padding: '12px', textAlign: 'right', color: '#4CAF50' }}>
+                                {averageExpenses.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'right', color: '#2196F3' }}>
+                                {averageIncome.toFixed(2)}
+                              </td>
+                              <td style={{ 
+                                padding: '12px', 
+                                textAlign: 'right',
+                                color: averageCashFlow >= 0 ? '#2E7D32' : '#C62828'
+                              }}>
+                                {averageCashFlow.toFixed(2)}
+                              </td>
+                              <td style={{ padding: '12px', textAlign: 'center' }}></td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
