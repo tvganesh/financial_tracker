@@ -1759,11 +1759,16 @@ export default function Home() {
                       onChange={e => {
                         setReportType(e.target.value);
                         setShowMonthlyTrend(e.target.value === 'monthly_trend');
-                        if (target.value === 'monthly_trend') {
-                          // Initialize with first 3 categories or fewer if not enough categories
+                        if (e.target.value === 'monthly_trend') {
+                          // If no categories are selected, default to 'grocery' or first available
                           if (selectedCategories.length === 0 && expenseCategories.length > 0) {
-                            const initialCategories = expenseCategories.slice(0, Math.min(3, expenseCategories.length));
-                            setSelectedCategories(initialCategories);
+                            setSelectedCategories([expenseCategories.includes('grocery') ? 'grocery' : expenseCategories[0]]);
+                          }
+                        }
+                        if (e.target.value === 'income_monthly_trend') {
+                          // If no categories are selected, default to 'rent received' or first available
+                          if (selectedCategories.length === 0 && incomeCategories.length > 0) {
+                            setSelectedCategories([incomeCategories.includes('rent received') ? 'rent received' : incomeCategories[0]]);
                           }
                         }
                       }}
@@ -1771,7 +1776,8 @@ export default function Home() {
                     >
                       <option value="expense">Expense</option>
                       <option value="income">Income</option>
-                      <option value="monthly_trend">Show monthly trend</option>
+                      <option value="monthly_trend">Expense monthly trend</option>
+                      <option value="income_monthly_trend">Income monthly trend</option>
                     </select>
                   </div>
                   <div>
@@ -2104,8 +2110,295 @@ export default function Home() {
                   </div>
                 )}
                 
+                {/* Category Selection for Income Monthly Trend */}
+                {reportType === 'income_monthly_trend' && (
+                  <div style={{ 
+                    display: 'flex',
+                    flexDirection: 'row',
+                    gap: '20px',
+                    marginBottom: '10px'
+                  }}>
+                    {/* Category Checkboxes - Left Side */}
+                    <div style={{ 
+                      width: '250px',
+                      backgroundColor: '#f5f5f5',
+                      padding: '15px',
+                      borderRadius: '8px',
+                      maxHeight: '500px',
+                      overflowY: 'auto'
+                    }}>
+                      <div style={{ marginBottom: '10px' }}>
+                        <label style={{ fontWeight: 'bold', fontSize: '14px' }}>Select Income Categories:</label>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        {/* Cumulative Trend Checkbox */}
+                        <div style={{ 
+                          padding: '10px', 
+                          backgroundColor: '#fff', 
+                          borderRadius: '4px',
+                          marginBottom: '10px'
+                        }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={showCumulative}
+                              onChange={(e) => setShowCumulative(e.target.checked)}
+                            />
+                            <span style={{ fontSize: '14px' }}>Show Cumulative Trend</span>
+                          </label>
+                        </div>
+                        {incomeCategories.map((category, index) => (
+                          <div key={index} style={{ display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              id={`income-report-category-${index}`}
+                              name="income-report-category"
+                              value={category}
+                              checked={selectedCategories.includes(category)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedCategories([...selectedCategories, category]);
+                                } else {
+                                  setSelectedCategories(selectedCategories.filter(c => c !== category));
+                                }
+                              }}
+                              style={{ marginRight: '8px' }}
+                            />
+                            <label 
+                              htmlFor={`income-report-category-${index}`}
+                              style={{ fontSize: '14px', cursor: 'pointer' }}
+                            >
+                              {category.charAt(0).toUpperCase() + category.slice(1)}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: '15px', display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={() => setSelectedCategories(incomeCategories)}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            background: '#2196F3',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Select All
+                        </button>
+                        <button
+                          onClick={() => setSelectedCategories([])}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '12px',
+                            background: '#f44336',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Clear All
+                        </button>
+                      </div>
+                    </div>
+                    {/* Chart content - will be shown on the right side */}
+                    <div style={{ flex: 1 }}>
+                      {/* Income Monthly Trend Chart */}
+                      {selectedCategories.length > 0 ? (
+                        (() => {
+                          // Get all dates in the filtered period
+                          let filteredIncome = income;
+                          if (reportFromDate || reportToDate) {
+                            filteredIncome = income.filter(item => {
+                              if (reportFromDate && item.date < reportFromDate) return false;
+                              if (reportToDate && item.date > reportToDate) return false;
+                              return true;
+                            });
+                          }
+                          // Get dates
+                          const allDates = [...new Set(filteredIncome.map(e => e.date))].sort();
+                          // Generate colors for each category
+                          const categoryColors = [
+                            { borderColor: '#2196F3', backgroundColor: 'rgba(33, 150, 243, 0.1)' },  // Blue
+                            { borderColor: '#9C27B0', backgroundColor: 'rgba(156, 39, 176, 0.1)' }, // Purple
+                            { borderColor: '#FFC107', backgroundColor: 'rgba(255, 193, 7, 0.1)' },  // Yellow
+                            { borderColor: '#4CAF50', backgroundColor: 'rgba(76, 175, 80, 0.1)' },  // Green
+                            { borderColor: '#FF9800', backgroundColor: 'rgba(255, 152, 0, 0.1)' },  // Orange
+                            { borderColor: '#795548', backgroundColor: 'rgba(121, 85, 72, 0.1)' },  // Brown
+                            { borderColor: '#607D8B', backgroundColor: 'rgba(96, 125, 139, 0.1)' }, // Blue Grey
+                            { borderColor: '#E91E63', backgroundColor: 'rgba(233, 30, 99, 0.1)' },  // Pink
+                            { borderColor: '#00BCD4', backgroundColor: 'rgba(0, 188, 212, 0.1)' },  // Cyan
+                          ];
+                          // Create datasets for each selected category
+                          const datasets = selectedCategories.flatMap((category, index) => {
+                            // Filter income for this category
+                            const categoryIncome = filteredIncome.filter(e => e.category === category);
+                            // Get color for this category (cycle through colors if more categories than colors)
+                            const colorIndex = index % categoryColors.length;
+                            const color = categoryColors[colorIndex];
+                            // Create regular trend data points
+                            const regularDataPoints = allDates.map(date => {
+                              const dayIncome = categoryIncome
+                                .filter(e => e.date === date)
+                                .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                              return dayIncome;
+                            });
+                            // Create base dataset
+                            const baseDataset = {
+                              label: category.charAt(0).toUpperCase() + category.slice(1),
+                              data: regularDataPoints,
+                              borderColor: color.borderColor,
+                              backgroundColor: color.backgroundColor,
+                              fill: false,
+                              tension: 0.4
+                            };
+                            // If cumulative trend is enabled, add cumulative dataset
+                            if (showCumulative) {
+                              const cumulativeDataPoints = allDates.map((date, index) => {
+                                return categoryIncome
+                                  .filter(e => e.date <= date)
+                                  .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                              });
+                              return [
+                                baseDataset,
+                                {
+                                  label: `${category.charAt(0).toUpperCase() + category.slice(1)} (Cumulative)` ,
+                                  data: cumulativeDataPoints,
+                                  borderColor: color.borderColor,
+                                  backgroundColor: 'transparent',
+                                  borderDash: [5, 5],
+                                  fill: false,
+                                  tension: 0
+                                }
+                              ];
+                            }
+                            return [baseDataset];
+                          });
+                          // Generate labels for dates
+                          const dateLabels = allDates.map(date => date);
+                          // Calculate total for all selected categories
+                          const totalForSelectedCategories = filteredIncome
+                            .filter(e => selectedCategories.includes(e.category))
+                            .reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                          // Transaction count for all selected categories
+                          const transactionCount = filteredIncome
+                            .filter(e => selectedCategories.includes(e.category))
+                            .length;
+                          return (
+                            <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                              <h4 style={{ marginTop: 0, marginBottom: '15px', color: '#2196F3' }}>
+                                Income Category Trend Over Time
+                              </h4>
+                              <Line
+                                data={{
+                                  labels: dateLabels,
+                                  datasets: datasets,
+                                }}
+                                options={{
+                                  responsive: true,
+                                  plugins: {
+                                    legend: {
+                                      position: 'top',
+                                      labels: {
+                                        boxWidth: 12
+                                      }
+                                    },
+                                    tooltip: {
+                                      callbacks: {
+                                        label: function(context) {
+                                          return `${context.dataset.label}: ₹${context.parsed.y.toFixed(2)}`;
+                                        }
+                                      }
+                                    }
+                                  },
+                                  scales: {
+                                    x: {
+                                      title: {
+                                        display: true,
+                                        text: 'Date'
+                                      }
+                                    },
+                                    y: {
+                                      title: {
+                                        display: true,
+                                        text: 'Amount (₹)'
+                                      },
+                                      grid: {
+                                        drawOnChartArea: true,
+                                        color: (context) => context.tick.value === 0 ? '#666' : '#e0e0e0',
+                                        lineWidth: (context) => context.tick.value === 0 ? 3 : 0.5
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                              {/* Summary Statistics for Selected Categories */}
+                              <div style={{ 
+                                marginTop: '30px',
+                                background: '#f5f5f5',
+                                padding: '20px',
+                                borderRadius: '8px'
+                              }}>
+                                <h4 style={{ margin: '0 0 15px 0', color: '#333' }}>
+                                  Selected Income Categories Statistics
+                                </h4>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '15px' }}>
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Total Income</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>
+                                      ₹{totalForSelectedCategories.toFixed(2)}
+                                    </div>
+                                  </div>
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Average per Transaction</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>
+                                      {transactionCount 
+                                        ? `₹${(totalForSelectedCategories / transactionCount).toFixed(2)}`
+                                        : '₹0.00'}
+                                    </div>
+                                  </div>
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>Transaction Count</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>
+                                      {transactionCount}
+                                    </div>
+                                  </div>
+                                  <div style={{ background: '#fff', padding: '15px', borderRadius: '8px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '13px', color: '#666', marginBottom: '5px' }}>% of Total Income</div>
+                                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2196F3' }}>
+                                      {(() => {
+                                        const totalIncomeInPeriod = filteredIncome.reduce((sum, e) => sum + parseFloat(e.amount), 0);
+                                        return totalIncomeInPeriod > 0 
+                                          ? `${((totalForSelectedCategories / totalIncomeInPeriod) * 100).toFixed(1)}%`
+                                          : '0.0%';
+                                      })()}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <div style={{ 
+                          padding: '30px', 
+                          background: '#f9f9f9', 
+                          borderRadius: '8px', 
+                          textAlign: 'center',
+                          color: '#666'
+                        }}>
+                          Please select at least one income category to view trend data
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
                 {/* Filtered data for charts */}
-                {reportType !== 'monthly_trend' && (() => {
+                {reportType !== 'monthly_trend' && reportType !== 'income_monthly_trend' && (() => {
                   const allData = reportType === 'expense' ? expenses : income;
                   const filteredData = allData.filter(item => {
                     if (reportFromDate && item.date < reportFromDate) return false;
