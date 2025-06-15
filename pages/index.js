@@ -1760,15 +1760,24 @@ export default function Home() {
                         setReportType(e.target.value);
                         setShowMonthlyTrend(e.target.value === 'monthly_trend');
                         if (e.target.value === 'monthly_trend') {
-                          // If no categories are selected, default to 'grocery' or first available
-                          if (selectedCategories.length === 0 && expenseCategories.length > 0) {
+                          // Remove any non-expense categories
+                          const filtered = selectedCategories.filter(cat => expenseCategories.includes(cat));
+                          if (filtered.length > 0) {
+                            setSelectedCategories(filtered);
+                          } else if (expenseCategories.length > 0) {
                             setSelectedCategories([expenseCategories.includes('grocery') ? 'grocery' : expenseCategories[0]]);
+                          } else {
+                            setSelectedCategories([]);
                           }
-                        }
-                        if (e.target.value === 'income_monthly_trend') {
-                          // If no categories are selected, default to 'rent received' or first available
-                          if (selectedCategories.length === 0 && incomeCategories.length > 0) {
+                        } else if (e.target.value === 'income_monthly_trend') {
+                          // Remove any non-income categories
+                          const filtered = selectedCategories.filter(cat => incomeCategories.includes(cat));
+                          if (filtered.length > 0) {
+                            setSelectedCategories(filtered);
+                          } else if (incomeCategories.length > 0) {
                             setSelectedCategories([incomeCategories.includes('rent received') ? 'rent received' : incomeCategories[0]]);
+                          } else {
+                            setSelectedCategories([]);
                           }
                         }
                       }}
@@ -2920,15 +2929,15 @@ export default function Home() {
                                     {
                                       label: 'May 2025',
                                       data: comparisonCategories.map(category => monthlyData['2025-05'][category] || 0),
-                                      backgroundColor: comparisonBarColors.map(color => color + '80'), // Add transparency
-                                      borderColor: comparisonBarColors,
+                                      backgroundColor: 'rgba(33, 150, 243, 0.7)', // Blue
+                                      borderColor: 'rgba(33, 150, 243, 1)',
                                       borderWidth: 1
                                     },
                                     {
                                       label: 'June 2025',
                                       data: comparisonCategories.map(category => monthlyData['2025-06'][category] || 0),
-                                      backgroundColor: comparisonBarColors,
-                                      borderColor: comparisonBarColors,
+                                      backgroundColor: 'rgba(76, 175, 80, 0.7)', // Green
+                                      borderColor: 'rgba(76, 175, 80, 1)',
                                       borderWidth: 1
                                     }
                                   ]
