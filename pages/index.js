@@ -1088,7 +1088,19 @@ export default function Home() {
                         }
                       }}
                     >
-                      Monthly Comparison
+                      Monthly Expense Comparison
+                    </div>
+                    <div
+                      style={{ padding: '8px 16px', cursor: 'pointer', fontSize: '14px', color: '#222' }}
+                      onClick={() => { 
+                        setAnalyzeMenuOpen(false); 
+                        setSelectedSection('monthly_income_comparison');
+                        if (!comparisonCategories.length && incomeCategories.length > 0) {
+                          setComparisonCategories(incomeCategories.slice(0, Math.min(3, incomeCategories.length)));
+                        }
+                      }}
+                    >
+                      Monthly Income Comparison
                     </div>
                   </div>
                 )}
@@ -3048,6 +3060,224 @@ export default function Home() {
                       ) : (
                         <div style={{ padding: '20px', textAlign: 'center', color: '#666', background: '#fafafa', borderRadius: '8px' }}>
                           Please select at least one category to view the comparison
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {selectedSection === 'monthly_income_comparison' && (
+              <div style={{ marginTop: '0', display: 'flex', flexDirection: 'column', gap: '32px' }}>
+                <h3 style={{ fontSize: '16px', marginBottom: '15px', color: '#333' }}>Monthly Income Comparison (May vs June)</h3>
+                {(() => {
+                  if (isLoadingReport) {
+                    return (
+                      <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                        Loading data from sheets...
+                      </div>
+                    );
+                  }
+                  // Category selection UI
+                  const CategorySelector = () => (
+                    <div style={{ marginBottom: '20px' }}>
+                      <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                        Select income categories to compare:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                        {incomeCategories.map(category => (
+                          <label
+                            key={category}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              padding: '6px 12px',
+                              backgroundColor: comparisonCategories.includes(category) ? '#e3f2fd' : '#f5f5f5',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              border: '1px solid #ddd',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={comparisonCategories.includes(category)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setComparisonCategories([...comparisonCategories, category]);
+                                } else {
+                                  setComparisonCategories(comparisonCategories.filter(c => c !== category));
+                                }
+                              }}
+                              style={{ marginRight: '6px' }}
+                            />
+                            {category}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                  // Process data for selected categories
+                  const mayStart = '2025-05-01';
+                  const mayEnd = '2025-05-31';
+                  const junStart = '2025-06-01';
+                  const junEnd = '2025-06-30';
+                  // Filter income for each month and category
+                  const mayIncome = allSheetsData.income.filter(
+                    i => i.date >= mayStart && i.date <= mayEnd
+                  );
+                  const junIncome = allSheetsData.income.filter(
+                    i => i.date >= junStart && i.date <= junEnd
+                  );
+                  // Build monthlyData for selected categories
+                  const monthlyData = {
+                    '2025-05': {},
+                    '2025-06': {}
+                  };
+                  comparisonCategories.forEach(category => {
+                    monthlyData['2025-05'][category] = mayIncome
+                      .filter(i => i.category === category)
+                      .reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                    monthlyData['2025-06'][category] = junIncome
+                      .filter(i => i.category === category)
+                      .reduce((sum, i) => sum + parseFloat(i.amount), 0);
+                  });
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                      <CategorySelector />
+                      {comparisonCategories.length > 0 ? (
+                        <>
+                          {/* Bar Chart */}
+                          <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                            <h4 style={{ margin: '0 0 12px 0', color: '#2196F3' }}>Monthly Income Comparison</h4>
+                            <div style={{ height: '400px' }}>
+                              <Bar
+                                data={{
+                                  labels: comparisonCategories,
+                                  datasets: [
+                                    {
+                                      label: 'May 2025',
+                                      data: comparisonCategories.map(category => monthlyData['2025-05'][category] || 0),
+                                      backgroundColor: 'rgba(33, 150, 243, 0.7)', // Blue
+                                      borderColor: 'rgba(33, 150, 243, 1)',
+                                      borderWidth: 1
+                                    },
+                                    {
+                                      label: 'June 2025',
+                                      data: comparisonCategories.map(category => monthlyData['2025-06'][category] || 0),
+                                      backgroundColor: 'rgba(76, 175, 80, 0.7)', // Green
+                                      borderColor: 'rgba(76, 175, 80, 1)',
+                                      borderWidth: 1
+                                    }
+                                  ]
+                                }}
+                                options={{
+                                  responsive: true,
+                                  maintainAspectRatio: false,
+                                  plugins: {
+                                    legend: {
+                                      position: 'top',
+                                      labels: {
+                                        boxWidth: 12,
+                                        font: { size: 11 }
+                                      }
+                                    },
+                                    tooltip: {
+                                      callbacks: {
+                                        label: function(context) {
+                                          return `${context.dataset.label}: ₹${context.parsed.y.toFixed(2)}`;
+                                        }
+                                      }
+                                    }
+                                  },
+                                  scales: {
+                                    x: {
+                                      title: {
+                                        display: true,
+                                        text: 'Category'
+                                      }
+                                    },
+                                    y: {
+                                      beginAtZero: true,
+                                      title: {
+                                        display: true,
+                                        text: 'Amount (₹)'
+                                      }
+                                    }
+                                  }
+                                }}
+                              />
+                            </div>
+                          </div>
+                          {/* Summary Table */}
+                          <div style={{ background: '#fafafa', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}>
+                            <h4 style={{ margin: '0 0 12px 0', color: '#2196F3' }}>Monthly Income Summary</h4>
+                            <div style={{ overflowX: 'auto' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                                <thead>
+                                  <tr style={{ backgroundColor: '#e3f2fd' }}>
+                                    <th style={{ padding: '12px', textAlign: 'left', borderBottom: '2px solid #ddd' }}>Category</th>
+                                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>May 2025</th>
+                                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>June 2025</th>
+                                    <th style={{ padding: '12px', textAlign: 'right', borderBottom: '2px solid #ddd' }}>Difference</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {comparisonCategories.map(category => {
+                                    const mayAmount = monthlyData['2025-05'][category] || 0;
+                                    const juneAmount = monthlyData['2025-06'][category] || 0;
+                                    const difference = juneAmount - mayAmount;
+                                    return (
+                                      <tr key={category} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '10px', fontWeight: 500 }}>{category}</td>
+                                        <td style={{ padding: '10px', textAlign: 'right', color: '#2196F3' }}>
+                                          {mayAmount.toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: '10px', textAlign: 'right', color: '#2196F3' }}>
+                                          {juneAmount.toFixed(2)}
+                                        </td>
+                                        <td style={{ 
+                                          padding: '10px', 
+                                          textAlign: 'right', 
+                                          color: difference >= 0 ? '#2E7D32' : '#C62828',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          {difference >= 0 ? '+' : ''}{difference.toFixed(2)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                                <tfoot>
+                                  <tr style={{ backgroundColor: '#f5f5f5', fontWeight: 'bold' }}>
+                                    <td style={{ padding: '12px', borderTop: '2px solid #ddd' }}>TOTAL</td>
+                                    <td style={{ padding: '12px', textAlign: 'right', borderTop: '2px solid #ddd', color: '#2196F3' }}>
+                                      {comparisonCategories.reduce((sum, cat) => sum + (monthlyData['2025-05'][cat] || 0), 0).toFixed(2)}
+                                    </td>
+                                    <td style={{ padding: '12px', textAlign: 'right', borderTop: '2px solid #ddd', color: '#2196F3' }}>
+                                      {comparisonCategories.reduce((sum, cat) => sum + (monthlyData['2025-06'][cat] || 0), 0).toFixed(2)}
+                                    </td>
+                                    <td style={{ 
+                                      padding: '12px', 
+                                      textAlign: 'right', 
+                                      borderTop: '2px solid #ddd',
+                                      color: comparisonCategories.reduce((sum, cat) => 
+                                        sum + ((monthlyData['2025-06'][cat] || 0) - (monthlyData['2025-05'][cat] || 0)), 0) >= 0 ? '#2E7D32' : '#C62828'
+                                    }}>
+                                      {comparisonCategories.reduce((sum, cat) => 
+                                        sum + ((monthlyData['2025-06'][cat] || 0) - (monthlyData['2025-05'][cat] || 0)), 0).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                </tfoot>
+                              </table>
+                            </div>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ padding: '20px', textAlign: 'center', color: '#666', background: '#fafafa', borderRadius: '8px' }}>
+                          Please select at least one income category to view the comparison
                         </div>
                       )}
                     </div>
