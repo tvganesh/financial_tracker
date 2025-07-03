@@ -66,7 +66,7 @@ export default function Home() {
     'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas','personal care','car maintrenance','house maintrenance',
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
-    'rent received', 'interest', 'annuity', 'salary', 'stock profit','other'
+    'rent received', 'interest', 'annuity', 'salary', 'stock profit','stock dividend','corporate fd','other'
   ]);
   const [showExpenseCategoryInput, setShowExpenseCategoryInput] = useState(false);
   const [showIncomeCategoryInput, setShowIncomeCategoryInput] = useState(false);
