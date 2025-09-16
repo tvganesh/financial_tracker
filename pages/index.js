@@ -66,7 +66,7 @@ export default function Home() {
     'food & entertainment', 'mobile', 'pet care','salary','electricity','water','gas','personal care','car maintrenance','house maintrenance','clothes & accessories','health & fitness','other'
   ]);
   const [incomeCategories, setIncomeCategories] = useState([
-    'rent received', 'interest', 'annuity', 'salary', 'stock profit','stock dividend','corporate fd','bond interest','other'
+    'rent received', 'interest', 'annuity', 'salary', 'stock profit','stock dividend','corporate fd','bond interest','SWP','other'
   ]);
   const [showExpenseCategoryInput, setShowExpenseCategoryInput] = useState(false);
   const [showIncomeCategoryInput, setShowIncomeCategoryInput] = useState(false);
